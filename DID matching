@@ -1,0 +1,92 @@
+#construct data set
+#specify the event and obervation window
+#eliminate duplicated events in the window to identify one events' impact
+
+setwd("/Users/jjw6286/Downloads/CSR_databreach")
+
+treatmentgroup<-unique(treatmentgroup)
+
+
+#construct candidate group: not over time be feature based
+summarydataset<- Allobservation_new[,1:4]
+summarydataset$crash_2y<- Allobservation_new$crash_2y
+candidategroup<-summarydataset
+
+#match based on these characters
+
+
+candidatedata1<-rbind(treatment, candidategroup)
+
+candidatedata1[which(is.na(candidatedata1$treat)), ]$treat<-0
+table(candidatedata2$treat)
+
+
+#apply matching method
+library(MatchIt)
+
+test<- candidatedata2[,13:17]
+test$treat<-candidatedata2$treat
+mat <- cem(treatment = "treat", data =test,
+keep.all=TRUE, 
+drop=c("mean_stateregulation","statefips","countyfips","mean_drone_military_base","testsites","diversity","crash_2y"),
+cutpoints=list(mean_crash_2y=c(1,3)))
+
+mat2 <- k2k(mat,  candidatedata2, "euclidean", 1)
+
+candidatedata1$strata<- mat$strata
+candidatedata1$mstrata<-mat2$mstrata
+
+#set up group ID
+treatmentgroup<-candidatedata1[which(candidatedata1$treat==1),]
+treatmentgroup$groupID<-seq(1,nrow(treatmentgroup))
+#match with treatment and controls
+
+matrix_address<- data.frame(as.numeric(as.matrix(nn1$match.matrix)))
+matrix_address$treatment<- rownames(nn1$match.matrix)
+colnames(matrix_address)[1]<-"control"
+
+j<-1
+for(i in 1: nrow(matrix_address)){
+candidatedata2[matrix_address[i,1],]$groupID<-j
+candidatedata2[matrix_address[i,2],]$groupID<-j
+j<-j+1
+}
+
+#######################
+#CEM matching
+#coarsened exact matching
+library(cem)
+#########################
+
+#1:2 CEM matching matched group and unmatched group
+for(i in 1:nrow(treatmentgroup) ){
+    controlgroup<-candidatedata1[which(candidatedata1$strata==treatmentgroup[i,]$strata & candidatedata1$treat==0),]
+    if(nrow(controlgroup)<3& nrow(controlgroup)>0 ){
+        controlgroup$groupID<-i
+        treatmentgroup<-rbind(treatmentgroup,controlgroup)
+    }
+    if(nrow(controlgroup)>2){
+    controlgroup$groupID<-i
+    treatmentgroup<-rbind(treatmentgroup,controlgroup[1:2,])
+    }
+}
+#check the matching
+summary(treatmentgroup[which(treatmentgroup$treat==1), ])
+summary(treatmentgroup[which(treatmentgroup$treat==0), ])
+
+#######################
+#random forest matching
+#########################
+#predict score
+psFormula <- treat~ mean_crash_2y +mean_safety_state
+
+candidatedata2$group<-NULL
+
+library(randomForest)
+ps.model<-randomForest(psFormula, data= candidatedata2)
+candidatedata2$PS <- ps.model$predicted
+
+#non-replacement matching
+nn1 <- matchit(psFormula, data=candidatedata2, distance=candidatedata2$PS,
+method="nearest", ratio =1, replace =F, caliper=15)
+
