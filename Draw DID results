@@ -1,0 +1,80 @@
+########################################
+#Draw DID results
+########################################
+
+x<-read.table("Interaction.csv",sep=",",header=TRUE)
+x$compete<-seq(-5,-5+nrow(x)-1)
+lineone<-x
+plot(x=lineone$compete,y= lineone$Mean,type='n', ylim=c(-2,2),ylab='Coefficients of Applications',
+xlab='Months Before and After',xaxt='n',yaxt='n')
+grid()
+
+axis(side =1, at= seq(-5,-5+nrow(x)-1),labels=seq(-5,-5+nrow(x)-1))
+axis(side =2, at= seq(-2,2),labels=seq(-2,2))
+
+for (i in 1:nrow(lineone)){
+points(lineone$compete[i],(lineone$Mean[i]+lineone$SD[i]),pch="-",lwd=2)
+points(lineone$compete[i],(lineone$Mean[i]-lineone$SD[i]),pch="-",lwd=2)
+segments(lineone$compete[i],(lineone$Mean[i]+lineone$SD[i]),lineone$compete[i],(lineone$Mean[i]-lineone$SD[i]),
+col=rgb(0.5,0.5,0.5,0.5),lty=1 ,lwd=2)
+}
+
+lines(x=lineone$compete,y= lineone$Mean,lty=1,col='black')
+
+
+line2<-read.table("Int2.csv", sep=",", header=TRUE)
+line2$compete<-seq(-5,-5+nrow(x)-1)
+
+
+########################################
+#Write tables
+########################################
+library(xtable)
+
+
+cleardata<-function(input){
+names<-rownames(input)
+final<-matrix("",nrow=nrow(input)*2,ncol=2)
+j=1
+for(i in 1:nrow(input)){
+st<-paste("(",formatC(as.numeric(input[i,2]), format = "e", digits = 2),")",sep="")
+if(!is.na(input[i,4])){
+if(as.numeric(input[i,4])<=0.001){
+coe<-paste(formatC(as.numeric(input[i,1]), format = "e", digits = 2),"***",sep="")
+}
+if(as.numeric(input[i,4]<=0.01&as.numeric(input[i,4])>0.001 )){
+coe<-paste(formatC(as.numeric(input[i,1]), format = "e", digits = 2),"**",sep="")
+}
+if(as.numeric(input[i,4]<=0.05&&as.numeric(input[i,4])>0.01)){
+coe<-paste(formatC(as.numeric(input[i,1]), format = "e", digits = 2),"*",sep="")
+}
+if(as.numeric(input[i,4]<=0.1&&as.numeric(input[i,4])>0.05)){
+coe<-paste(formatC(as.numeric(input[i,1]), format = "e", digits = 2),"+",sep="")
+}
+if(as.numeric(input[i,4])>0.1){
+coe<-formatC(as.numeric(input[i,1]), format = "e", digits = 2)}
+}else{
+coe<-"NA"
+}
+final[j,1]<-names[i]
+final[j,2]<-coe
+final[j+1,2]<-st
+j<-j+2
+}
+return(final)
+}
+
+
+# write zero inflation model
+mm<-summary(results)
+print.xtable(xtable(
+rbind(data.frame(cleardata(mm$cm)),
+data.frame(cbind("Obs.",nrow(groupDID))),
+data.frame(cbind("Residual deviance", round( 
+as.numeric(as.matrix(mm$deviance) ),digits=2) )),
+data.frame(cbind("Null deviance", round( 
+as.numeric(as.matrix(mm$null.deviance) ),digits=2) ))
+
+)
+)
+,type="html",file="numfundingzipsubset1.html")
