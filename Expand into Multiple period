@@ -1,0 +1,68 @@
+import pandas as pd
+import numpy as np
+from datetime import date
+from datetime import datetime
+import math
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta, MO
+from pandas import DataFrame
+
+#get the event time
+
+eventlocation = pd.read_csv("protests.csv")
+print(eventlocation.columns.values)
+#go back for days n_days
+def DID(eventlocation, n_days, names):
+    happenyear = eventlocation[names=='year'].astype(int)
+    print (happenyear)
+    happenmonth = eventlocation[names=='month'].astype(int)
+    print(happenmonth)
+    state= eventlocation[names=='statefips'].values.astype(int)
+    county = eventlocation[names=='countyfips'].values.astype(int)
+    treat = eventlocation[names=='treat'].values.astype(int)
+    Antisurveillance= eventlocation[names=='Antisurveillance'].values
+    groupID= eventlocation[names=='groupID'].values
+    PS =  eventlocation[names=='PS'].values
+    print(PS)
+    eventday =datetime(happenyear, happenmonth,1, 0, 0, 0)
+    happenyear =happenyear.values
+    happenmonth = happenmonth.values
+      #  date(eventlocation['year'], eventlocation['month'], 1).isoformat()
+    spreadpanel = pd.DataFrame(columns =['year','month','statefips','countyfips','indicator','treat','Antisurveillance','groupID','happenyear','happenmonth','PS','timeperiod'])
+    timeperiod = -12
+
+
+    for i in range(1, n_days):
+        prior_day = pd.to_datetime(eventday)-relativedelta(months=i)
+
+        year = prior_day.year
+
+        month = prior_day.month
+
+        appendrow = pd.DataFrame({'year': year,'month': month,'statefips': state,'countyfips':county,'indicator': 0,'treat':treat,'Antisurveillance': Antisurveillance,'groupID': groupID,'happenyear':happenyear,'happenmonth':happenmonth,'PS':PS,'timeperiod': timeperiod },index=[0])
+
+        spreadpanel = spreadpanel.append(appendrow)
+        timeperiod = timeperiod+1
+
+    for i in range(1, n_days):
+        post_day = pd.to_datetime(eventday)+ relativedelta(months=i)
+        year = post_day.year
+        month = post_day.month
+        appendrow = pd.DataFrame({'year': year, 'month': month, 'statefips': state,'countyfips':county,'indicator': 1, 'treat':treat,'Antisurveillance': Antisurveillance,'groupID': groupID ,'happenyear':happenyear,'happenmonth':happenmonth,'PS':PS, 'timeperiod': timeperiod },index=[0])
+        spreadpanel = spreadpanel.append(appendrow)
+        timeperiod = timeperiod + 1
+    print(spreadpanel)
+    return spreadpanel
+
+results = eventlocation.apply(DID, n_days= 24,names =eventlocation.columns.values , axis =1)
+
+flatlist = DataFrame(['year', 'month', 'statefips', 'countyfips', 'indicator','treat','Antisurveillance','groupID','happenyear','happenmonth','PS','timeperiod' ])
+
+for sublist in results:
+    flatlist= pd.concat([flatlist, DataFrame(sublist)], axis=0)
+
+
+print(flatlist)
+flatlist.to_csv('findit.csv')
+
+#find control groups
